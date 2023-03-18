@@ -43,9 +43,15 @@ bool Adafruit_VEML7700::begin(TwoWire *theWire)
 {
     i2c_dev = new Adafruit_I2CDevice(VEML7700_I2CADDR_DEFAULT, theWire);
 
+    bool returnValue = false;
+
     if (!i2c_dev->begin())
     {
-        return false;
+        returnValue = false;
+    }
+    else
+    {
+        returnValue = true;
     }
 
     ALS_Config =
@@ -81,7 +87,7 @@ bool Adafruit_VEML7700::begin(TwoWire *theWire)
 
     lastRead = millis();
 
-    return true;
+    return returnValue;
 }
 
 /*!
@@ -93,20 +99,30 @@ float Adafruit_VEML7700::readLux(luxMethod method)
 {
     bool wait = true;
 
-    if (method == VEML_LUX_NORMAL_NOWAIT || method == VEML_LUX_CORRECTED_NOWAIT)
+    if ((method == VEML_LUX_NORMAL_NOWAIT) || (method == VEML_LUX_CORRECTED_NOWAIT))
+    { // Added parantheses to make operator precedence explicit
+        // Added curly brackets to make body compound-statement
         wait = false;
+    }
 
+    float returnValue = 0;
     switch (method)
     {
     case VEML_LUX_NORMAL:
-        return computeLux(readALS(wait));
+        returnValue = computeLux(readALS(wait));
+        break;
     case VEML_LUX_CORRECTED:
-        return computeLux(readALS(wait), true);
+        returnValue = computeLux(readALS(wait), true);
+        break;
     case VEML_LUX_AUTO:
-        return autoLux();
+        returnValue = autoLux();
+        break;
     default:
-        return -1;
+        returnValue = -1;
+        break;
     }
+
+    return returnValue;
 }
 
 /*!
@@ -119,7 +135,9 @@ float Adafruit_VEML7700::readLux(luxMethod method)
 uint16_t Adafruit_VEML7700::readALS(bool wait)
 {
     if (wait)
-        readWait();
+    {
+        readWait(); // Add curly brackets
+    }
     lastRead = millis();
     return ALS_Data->read();
 }
@@ -134,7 +152,9 @@ uint16_t Adafruit_VEML7700::readALS(bool wait)
 uint16_t Adafruit_VEML7700::readWhite(bool wait)
 {
     if (wait)
+    {
         readWait();
+    }
     lastRead = millis();
     return White_Data->read();
 }
@@ -154,7 +174,9 @@ void Adafruit_VEML7700::enable(bool enable)
     //   processor and oscillator.
     //   '''
     if (enable)
+    {             // Added brackets
         delay(5); // doubling 2.5ms spec to be sure
+    }
 }
 
 /*!
@@ -237,23 +259,33 @@ uint8_t Adafruit_VEML7700::getIntegrationTime(void)
  */
 int Adafruit_VEML7700::getIntegrationTimeValue(void)
 {
+    int returnValue = 0;
     switch (getIntegrationTime())
     {
     case VEML7700_IT_25MS:
-        return 25;
+        returnValue = 25;
+        break;
     case VEML7700_IT_50MS:
-        return 50;
+        returnValue = 50;
+        break;
     case VEML7700_IT_100MS:
-        return 100;
+        returnValue = 100;
+        break;
     case VEML7700_IT_200MS:
-        return 200;
+        returnValue = 200;
+        break;
     case VEML7700_IT_400MS:
-        return 400;
+        returnValue = 400;
+        break;
     case VEML7700_IT_800MS:
-        return 800;
+        returnValue = 800;
+        break;
     default:
-        return -1;
+        returnValue = -1;
+        break;
     }
+
+    return returnValue;
 }
 
 /*!
@@ -280,19 +312,27 @@ uint8_t Adafruit_VEML7700::getGain(void) { return ALS_Gain->read(); }
  */
 float Adafruit_VEML7700::getGainValue(void)
 {
+    float returnValue = 0;
     switch (getGain())
     {
     case VEML7700_GAIN_1_8:
-        return 0.125;
+        returnValue = 0.125;
+        break;
     case VEML7700_GAIN_1_4:
-        return 0.25;
+        returnValue = 0.25;
+        break;
     case VEML7700_GAIN_1:
-        return 1;
+        returnValue = 1;
+        break;
     case VEML7700_GAIN_2:
-        return 2;
+        returnValue = 2;
+        break;
     default:
-        return -1;
+        returnValue = -1;
+        break;
     }
+
+    return returnValue;
 }
 
 /*!
@@ -397,8 +437,10 @@ float Adafruit_VEML7700::computeLux(uint16_t rawALS, bool corrected)
 {
     float lux = getResolution() * rawALS;
     if (corrected)
-        lux = (((6.0135e-13 * lux - 9.3924e-9) * lux + 8.1488e-5) * lux + 1.0023) *
-              lux;
+    { // Added curly brackets
+        lux = ((((((6.0135e-13 * lux) - 9.3924e-9) * lux) + 8.1488e-5) * lux) + 1.0023) *
+              lux; // Added parantheses to make operator precedence explicit
+    }
     return lux;
 }
 
@@ -417,7 +459,9 @@ void Adafruit_VEML7700::readWait(void)
     unsigned long timeWaited = millis() - lastRead;
 
     if (timeWaited < timeToWait)
+    { // Added curly brackets
         delay(timeToWait - timeWaited);
+    }
 }
 
 /*!
@@ -461,6 +505,9 @@ float Adafruit_VEML7700::autoLux(void)
             {
                 setIntegrationTime(intTimes[++itIndex]);
             }
+            else
+            {
+            } // Added empty else statement
             ALS = readALS(true);
             // Serial.print("ALS low lux = "); Serial.println(ALS);
         }
@@ -471,7 +518,8 @@ float Adafruit_VEML7700::autoLux(void)
         // decrease integration time as needed
         // compute lux using non-linear correction
         useCorrection = true;
-        while ((ALS > (uint16_t)10000) && (itIndex > 0))
+        while ((ALS > (uint16_t)10000) && (itIndex > (uint8_t)0))
+        // Typecasted 10000 to uint16_t andd 0 to uint8_t
         {
             setIntegrationTime(intTimes[--itIndex]);
             ALS = readALS(true);
