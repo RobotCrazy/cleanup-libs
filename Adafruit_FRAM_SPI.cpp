@@ -33,7 +33,8 @@
 #include "Adafruit_FRAM_SPI.h"
 
 /// Supported flash devices
-const struct {
+const struct
+{
   uint8_t manufID; ///< Manufacture ID
   uint16_t prodID; ///< Product ID
   uint32_t size;   ///< Size in bytes
@@ -63,12 +64,17 @@ const struct {
  *          ProductID to be checked
  *  @return size of device, 0 if not supported
  */
-static uint32_t check_supported_device(uint8_t manufID, uint16_t prodID) {
+static uint32_t check_supported_device(uint8_t manufID, uint16_t prodID)
+{
+  uint32_t returnValue = 0;
   for (uint8_t i = 0;
-       i < sizeof(_supported_devices) / sizeof(_supported_devices[0]); i++) {
-    if (manufID == _supported_devices[i].manufID &&
-        prodID == _supported_devices[i].prodID)
-      return _supported_devices[i].size;
+       i < sizeof(_supported_devices) / sizeof(_supported_devices[0]); i++)
+  {
+    if ((manufID == _supported_devices[i].manufID) &&
+        (prodID == _supported_devices[i].prodID)) // Add parantheses to specify operator order
+    {                                             // Added brackets to if statement body
+      returnValue = _supported_devices[i].size;
+    }
   }
 
   Serial.print(F("Unexpected Device: Manufacturer ID = 0x"));
@@ -76,7 +82,7 @@ static uint32_t check_supported_device(uint8_t manufID, uint16_t prodID) {
   Serial.print(F(", Product ID = 0x"));
   Serial.println(prodID, HEX);
 
-  return 0;
+  return returnValue; // Modified function to ensure single point of exit
 }
 
 /*!
@@ -89,8 +95,10 @@ static uint32_t check_supported_device(uint8_t manufID, uint16_t prodID) {
  *          The SPI clock frequency to use, defaults to 1MHz
  */
 Adafruit_FRAM_SPI::Adafruit_FRAM_SPI(int8_t cs, SPIClass *theSPI,
-                                     uint32_t freq) {
-  if (spi_dev) {
+                                     uint32_t freq)
+{
+  if (spi_dev == true) // Added '== true' to make explicit boolean expression. Error: 'he controlling expression of an if statement and the controlling expression of an iteration-statement shall have essentially Boolean type Control flow'
+  {
     delete spi_dev;
   }
 
@@ -110,8 +118,10 @@ Adafruit_FRAM_SPI::Adafruit_FRAM_SPI(int8_t cs, SPIClass *theSPI,
  *          CS pin
  */
 Adafruit_FRAM_SPI::Adafruit_FRAM_SPI(int8_t clk, int8_t miso, int8_t mosi,
-                                     int8_t cs) {
-  if (spi_dev) {
+                                     int8_t cs)
+{
+  if (spi_dev == true) // Added '== true' to make explicit boolean expression. Error: 'he controlling expression of an if statement and the controlling expression of an iteration-statement shall have essentially Boolean type Control flow'
+  {
     delete spi_dev;
   }
 
@@ -126,34 +136,46 @@ Adafruit_FRAM_SPI::Adafruit_FRAM_SPI(int8_t clk, int8_t miso, int8_t mosi,
  *          sddress size in bytes (default 2)
  *  @return true if successful
  */
-bool Adafruit_FRAM_SPI::begin(uint8_t nAddressSizeBytes) {
+bool Adafruit_FRAM_SPI::begin(uint8_t nAddressSizeBytes)
+{
   (void)
       nAddressSizeBytes; // not used anymore, since we will use auto-detect size
 
+  bool returnValue = true;
+
   /* Configure SPI */
-  if (!spi_dev->begin()) {
-    return false;
+  if (!spi_dev->begin())
+  {
+    returnValue = false;
+  }
+  else
+  {
+
+    /* Make sure we're actually connected */
+    uint8_t manufID;
+    uint16_t prodID;
+    getDeviceID(&manufID, &prodID);
+
+    /* Everything seems to be properly initialised and connected */
+    uint32_t flash_size = check_supported_device(manufID, prodID);
+
+    Serial.print(F("Flash Size = 0x"));
+    Serial.println(flash_size, HEX);
+
+    // Detect address size in bytes either 2 or 3 bytes (4 bytes is not supported)
+    if (flash_size > (64UL * 1024)) // Added parantheses to explicitly specify operator order
+    {
+      setAddressSize(3);
+    }
+    else
+    {
+      setAddressSize(2);
+    }
+
+    returnValue = (flash_size != 0);
   }
 
-  /* Make sure we're actually connected */
-  uint8_t manufID;
-  uint16_t prodID;
-  getDeviceID(&manufID, &prodID);
-
-  /* Everything seems to be properly initialised and connected */
-  uint32_t flash_size = check_supported_device(manufID, prodID);
-
-  Serial.print(F("Flash Size = 0x"));
-  Serial.println(flash_size, HEX);
-
-  // Detect address size in bytes either 2 or 3 bytes (4 bytes is not supported)
-  if (flash_size > 64UL * 1024) {
-    setAddressSize(3);
-  } else {
-    setAddressSize(2);
-  }
-
-  return flash_size != 0;
+  return returnValue; // Modified function to ensure single point of exit
 }
 
 /*!
@@ -161,12 +183,16 @@ bool Adafruit_FRAM_SPI::begin(uint8_t nAddressSizeBytes) {
     @param enable
             True enables writes, false disables writes
 */
-void Adafruit_FRAM_SPI::writeEnable(bool enable) {
+void Adafruit_FRAM_SPI::writeEnable(bool enable)
+{
   uint8_t cmd;
 
-  if (enable) {
+  if (enable)
+  {
     cmd = OPCODE_WREN;
-  } else {
+  }
+  else
+  {
     cmd = OPCODE_WRDI;
   }
   spi_dev->write(&cmd, 1);
@@ -179,18 +205,31 @@ void Adafruit_FRAM_SPI::writeEnable(bool enable) {
  *  @param value
  *         The 8-bit value to write at framAddr
  */
-void Adafruit_FRAM_SPI::write8(uint32_t addr, uint8_t value) {
+void Adafruit_FRAM_SPI::write8(uint32_t addr, uint8_t value)
+{
   uint8_t buffer[10];
   uint8_t i = 0;
 
-  buffer[i++] = OPCODE_WRITE;
+  buffer[i] = OPCODE_WRITE;
+  i++; //'A full expression containing an increment (++) or decrement (--) operator should have no other potential side effects other than that caused by the increment or decrement operator'
   if (_nAddressSizeBytes > 3)
-    buffer[i++] = (uint8_t)(addr >> 24);
+  {
+    buffer[i] = (uint8_t)(addr >> 24); // Added brackets and removed i++ from inside []
+    i++;
+  }
+
   if (_nAddressSizeBytes > 2)
-    buffer[i++] = (uint8_t)(addr >> 16);
-  buffer[i++] = (uint8_t)(addr >> 8);
-  buffer[i++] = (uint8_t)(addr & 0xFF);
-  buffer[i++] = value;
+  {
+    buffer[i] = (uint8_t)(addr >> 16); // Added brackets and removed i++ from inside []
+    i++;
+  }
+
+  buffer[i] = (uint8_t)(addr >> 8); // Added brackets and removed i++ from inside []
+  i++;
+  buffer[i] = (uint8_t)(addr & 0xFF); // Added brackets and removed i++ from inside []
+  i++;
+  buffer[i] = value; // Added brackets and removed i++ from inside []
+  i++;
 
   spi_dev->write(buffer, i);
 }
@@ -205,17 +244,27 @@ void Adafruit_FRAM_SPI::write8(uint32_t addr, uint8_t value) {
  *           The number of bytes to write
  */
 void Adafruit_FRAM_SPI::write(uint32_t addr, const uint8_t *values,
-                              size_t count) {
+                              size_t count)
+{
   uint8_t prebuf[10];
   uint8_t i = 0;
 
-  prebuf[i++] = OPCODE_WRITE;
+  prebuf[i] = OPCODE_WRITE;
+  i++;
   if (_nAddressSizeBytes > 3)
-    prebuf[i++] = (uint8_t)(addr >> 24);
+  {                                    // Added brackets to if statement body
+    prebuf[i] = (uint8_t)(addr >> 24); // Removed i++ from inside [] and moved to next line
+    i++;
+  }
   if (_nAddressSizeBytes > 2)
-    prebuf[i++] = (uint8_t)(addr >> 16);
-  prebuf[i++] = (uint8_t)(addr >> 8);
-  prebuf[i++] = (uint8_t)(addr & 0xFF);
+  {                                    // Added brackets to if statement body
+    prebuf[i] = (uint8_t)(addr >> 16); // Removed i++ from inside [] and moved to next line
+    i++;
+  }
+  prebuf[i] = (uint8_t)(addr >> 8); // Removed i++ from inside [] and moved to next line
+  i++;
+  prebuf[i] = (uint8_t)(addr & 0xFF); // Removed i++ from inside [] and moved to next line
+  i++;
 
   spi_dev->write(values, count, prebuf, i);
 }
@@ -226,17 +275,29 @@ void Adafruit_FRAM_SPI::write(uint32_t addr, const uint8_t *values,
  *           The 32-bit address to read from in FRAM memory
  *   @return The 8-bit value retrieved at framAddr
  */
-uint8_t Adafruit_FRAM_SPI::read8(uint32_t addr) {
-  uint8_t buffer[10], val;
+uint8_t Adafruit_FRAM_SPI::read8(uint32_t addr)
+{
+  uint8_t buffer[10];
+  uint8_t val; // Removed comma operator
+
   uint8_t i = 0;
 
-  buffer[i++] = OPCODE_READ;
+  buffer[i] = OPCODE_READ; // Removed i++ from inside [] and moved to next line
+  i++;
   if (_nAddressSizeBytes > 3)
-    buffer[i++] = (uint8_t)(addr >> 24);
+  {                                    // Added brackets to if statement body
+    buffer[i] = (uint8_t)(addr >> 24); // Removed i++ from inside [] and moved to next line
+    i++;
+  }
   if (_nAddressSizeBytes > 2)
-    buffer[i++] = (uint8_t)(addr >> 16);
-  buffer[i++] = (uint8_t)(addr >> 8);
-  buffer[i++] = (uint8_t)(addr & 0xFF);
+  {                                    // Added brackets to if statement body
+    buffer[i] = (uint8_t)(addr >> 16); // Removed i++ from inside [] and moved to next line
+    i++;
+  }
+  buffer[i] = (uint8_t)(addr >> 8); // Removed i++ from inside [] and moved to next line
+  i++;
+  buffer[i] = (uint8_t)(addr & 0xFF); // Removed i++ from inside [] and moved to next line
+  i++;
 
   spi_dev->write_then_read(buffer, i, &val, 1);
 
@@ -252,17 +313,27 @@ uint8_t Adafruit_FRAM_SPI::read8(uint32_t addr) {
  *   @param  count
  *           The number of bytes to read
  */
-void Adafruit_FRAM_SPI::read(uint32_t addr, uint8_t *values, size_t count) {
+void Adafruit_FRAM_SPI::read(uint32_t addr, uint8_t *values, size_t count)
+{
   uint8_t buffer[10];
   uint8_t i = 0;
 
-  buffer[i++] = OPCODE_READ;
+  buffer[i] = OPCODE_READ; // Removed i++ from inside [] and moved to next line
+  i++;
   if (_nAddressSizeBytes > 3)
-    buffer[i++] = (uint8_t)(addr >> 24);
+  {                                    // Added brackets to if statement body
+    buffer[i] = (uint8_t)(addr >> 24); // Removed i++ from inside [] and moved to next line
+    i++;
+  }
   if (_nAddressSizeBytes > 2)
-    buffer[i++] = (uint8_t)(addr >> 16);
-  buffer[i++] = (uint8_t)(addr >> 8);
-  buffer[i++] = (uint8_t)(addr & 0xFF);
+  {
+    buffer[i] = (uint8_t)(addr >> 16); // Removed i++ from inside [] and moved to next line
+    i++;
+  }
+  buffer[i] = (uint8_t)(addr >> 8); // Removed i++ from inside [] and moved to next line
+  i++;
+  buffer[i] = (uint8_t)(addr & 0xFF); // Removed i++ from inside [] and moved to next line
+  i++;
 
   spi_dev->write_then_read(buffer, i, values, count);
 }
@@ -277,18 +348,22 @@ void Adafruit_FRAM_SPI::read(uint32_t addr, uint8_t *values, size_t count) {
  *          the MB85RS64VPNF-G-JNERE1.
  */
 void Adafruit_FRAM_SPI::getDeviceID(uint8_t *manufacturerID,
-                                    uint16_t *productID) {
+                                    uint16_t *productID)
+{
   uint8_t cmd = OPCODE_RDID;
   uint8_t a[4] = {0, 0, 0, 0};
 
   spi_dev->write_then_read(&cmd, 1, a, 4);
 
-  if (a[1] == 0x7f) {
+  if (a[1] == 0x7f)
+  {
     // Device with continuation code (0x7F) in their second byte
     // Manu ( 1 byte)  - 0x7F - Product (2 bytes)
     *manufacturerID = (a[0]);
     *productID = (a[2] << 8) + a[3];
-  } else {
+  }
+  else
+  {
     // Device without continuation code
     // Manu ( 1 byte)  - Product (2 bytes)
     *manufacturerID = (a[0]);
@@ -300,8 +375,10 @@ void Adafruit_FRAM_SPI::getDeviceID(uint8_t *manufacturerID,
     @brief  Reads the status register
     @return register value
 */
-uint8_t Adafruit_FRAM_SPI::getStatusRegister() {
-  uint8_t cmd, val;
+uint8_t Adafruit_FRAM_SPI::getStatusRegister()
+{
+  uint8_t cmd;
+  uint8_t val; // Removed comma operator
 
   cmd = OPCODE_RDSR;
 
@@ -315,7 +392,8 @@ uint8_t Adafruit_FRAM_SPI::getStatusRegister() {
  *   @param  value
  *           value that will be set
  */
-void Adafruit_FRAM_SPI::setStatusRegister(uint8_t value) {
+void Adafruit_FRAM_SPI::setStatusRegister(uint8_t value)
+{
   uint8_t cmd[2];
 
   cmd[0] = OPCODE_WRSR;
@@ -329,6 +407,7 @@ void Adafruit_FRAM_SPI::setStatusRegister(uint8_t value) {
  *   @param  nAddressSize
  *           address size in bytes
  */
-void Adafruit_FRAM_SPI::setAddressSize(uint8_t nAddressSize) {
+void Adafruit_FRAM_SPI::setAddressSize(uint8_t nAddressSize)
+{
   _nAddressSizeBytes = nAddressSize;
 }
